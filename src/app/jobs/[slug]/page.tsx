@@ -11,6 +11,7 @@ import {
   MaturityStatus,
   ScoreBreakdown,
 } from '@/components/scores'
+import { JobAlertModal, ErrorReportModal } from '@/components/modals'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -70,7 +71,7 @@ export default async function JobLeaderboardPage({ params }: PageProps) {
         {/* Job Header */}
         <div className="flex items-start gap-6 mb-12">
           <span className="text-6xl">{icon}</span>
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
               {i18n?.seo_title || job.slug}
             </h1>
@@ -80,10 +81,21 @@ export default async function JobLeaderboardPage({ params }: PageProps) {
               </p>
             )}
             {i18n?.description && (
-              <p className="text-lg text-slate-600 max-w-2xl">
+              <p className="text-lg text-slate-600 max-w-2xl mb-4">
                 {i18n.description}
               </p>
             )}
+            <div className="flex items-center gap-4">
+              <JobAlertModal
+                jobId={job.id}
+                jobName={i18n?.seo_title || job.slug}
+              />
+              <ErrorReportModal
+                entityType="job"
+                entityId={job.id}
+                entityName={i18n?.seo_title || job.slug}
+              />
+            </div>
           </div>
         </div>
 

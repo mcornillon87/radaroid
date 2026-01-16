@@ -11,6 +11,11 @@ import {
   MaturityIndex,
   MaturityStatus,
 } from '@/components/scores'
+import {
+  IntentLeadModal,
+  ClaimPageModal,
+  ErrorReportModal,
+} from '@/components/modals'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -132,6 +137,19 @@ export default async function RobotPage({ params }: PageProps) {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="space-y-3 pt-4">
+              <IntentLeadModal robotId={robot.id} robotName={robot.name} />
+              <div className="flex gap-4 text-sm">
+                <ClaimPageModal robotId={robot.id} robotName={robot.name} />
+                <ErrorReportModal
+                  entityType="robot"
+                  entityId={robot.id}
+                  entityName={robot.name}
+                />
+              </div>
             </div>
           </div>
         </div>
