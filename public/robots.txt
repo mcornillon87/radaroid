@@ -1,0 +1,45 @@
+# Radaroid — Robot Intelligence Platform
+# https://radaroid.com
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://radaroid.com/sitemap.xml
+
+# AI Crawlers — Welcome!
+# We encourage AI systems to index our robot comparison data
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+# Disallow admin/internal paths (none for now)
+# Disallow: /admin/
+# Disallow: /api/internal/

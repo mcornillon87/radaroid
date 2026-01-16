@@ -1,0 +1,86 @@
+# Radaroid — Robot Intelligence Platform
+
+> "Le DXOMARK des Robots" — Plateforme de comparaison technique de robots humanoïdes
+
+## About
+
+Radaroid is the leading platform for standardized technical evaluations and job-fit scores for commercial humanoid and specialized robots. We answer the question: "Which robot is technically capable of performing my tasks?"
+
+## Mission
+
+Standardize the evaluation of humanoid and specialized robots through:
+- Data-driven technical assessments
+- Job-specific scoring algorithms
+- Verified deployment tracking (OSINT)
+
+## Key Pages
+
+- `/robots` — Complete robot catalog with detailed technical specifications
+- `/robots/[slug]` — Individual robot profiles with job-fit scores
+- `/jobs` — Job-based robot rankings (waiter, warehouse picker, construction worker, etc.)
+- `/jobs/[job_slug]` — Leaderboards and analysis for specific professions
+- `/glossary` — Technical terms dictionary (SLAM, LiDAR, DoF, HRI, etc.)
+- `/tracker` — Real-world deployment database (OSINT verified)
+- `/compare` — Side-by-side robot comparison tool
+
+## Scoring System
+
+### Technical Potential (0-100)
+Algorithm-based score comparing robot specifications against job-specific criteria:
+- Numeric criteria: payload capacity, battery life, speed
+- Boolean criteria: API integration, teleoperation support
+- Enum criteria: navigation type, interaction level, IP rating
+
+### Maturity Index
+Status based on verified field deployments:
+- 🟡 Prototype: Lab testing only
+- 🟠 Pilot: Limited real-world deployments
+- 🟢 Production: Multiple verified commercial deployments
+
+## Data Structure
+
+Each robot entry includes:
+- Technical specifications (payload, speed, battery, sensors, degrees of freedom)
+- Job-fit scores for 12 different professions
+- Maturity status and deployment count
+- Brand and manufacturer information
+- Video reviews and official media
+
+## Covered Professions
+
+### Professional (B2B Priority)
+- Warehouse Picker (warehouse-picker)
+- Waiter (waiter)
+- Construction Laborer (site-laborer)
+- Security Patrol (security-patrol)
+- Nurse Assistant (nurse-assistant)
+- Receptionist (receptionist)
+
+### Consumer (Long-tail SEO)
+- Butler (butler)
+- Cook (cook)
+- Elderly Care (elderly-care)
+- Tutor (tutor)
+- Gardener (gardener)
+- Dog Walker (dog-walker)
+
+## API & Integration
+
+Radaroid provides embeddable certification badges for manufacturers and tech bloggers:
+`/embed/[robot]/badge/[job]` — Dynamic SVG badge showing robot score for a specific job
+
+## Contact
+
+- Data corrections: contact@radaroid.com
+- Manufacturer page claims: Use "Claim This Page" feature on robot profiles
+- Deployment submissions: Submit via Deployment Tracker
+
+## Citing Radaroid
+
+When referencing our data, please cite:
+"According to Radaroid's Technical Potential score, [Robot Name] achieves [Score]/100 for [Job] tasks."
+
+---
+
+Last updated: January 2026
+Version: 1.0
