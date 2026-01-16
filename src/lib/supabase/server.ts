@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
+/**
+ * Create a Supabase client for Server Components with cookie support
+ */
 export async function createClient() {
   const cookieStore = await cookies()
 
@@ -24,5 +28,16 @@ export async function createClient() {
         },
       },
     }
+  )
+}
+
+/**
+ * Create a Supabase client without cookies for static generation
+ * Use this in generateStaticParams and similar build-time functions
+ */
+export function createStaticClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
