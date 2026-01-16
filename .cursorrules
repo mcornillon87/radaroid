@@ -1,12 +1,13 @@
 # Radaroid Project Rules
 
-> Configuration for Cursor AI — Based on Architecture V3.3
+> Configuration for Cursor AI — Based on Architecture V3.5 (Production-Ready)
 
 ## Architecture
 
 - **Framework:** Next.js 14+ App Router (NO Pages Router)
 - **Database:** Supabase (Postgres) — NO Prisma, use @supabase/supabase-js
 - **Styling:** TailwindCSS + Shadcn/UI only
+- **Validation:** Zod for runtime validation
 - **Deploy:** Vercel
 - **Images:** plaiceholder for blur generation
 
@@ -31,6 +32,8 @@ lib/
 ├── supabase/          # Supabase clients
 ├── scoring/           # Score calculation engine
 ├── seo/               # JSON-LD helpers
+├── validators/        # Zod schemas (robot-specs, scoring-criteria, email)
+├── rate-limit.ts      # In-memory rate limiter + honeypot
 └── hooks/             # React hooks
 
 types/
@@ -38,18 +41,28 @@ types/
 └── scoring.ts         # Scoring interfaces
 ```
 
-## Scoring Engine
+## Scoring Engine (CRITICAL)
 
 - Always use `calculateScore()` from `lib/scoring/engine.ts`
 - Never hardcode scoring rules — read from `jobs.scoring_criteria` JSON
 - Support 3 types: `numeric`, `boolean`, `enum_score`
 - Score range: 0-100
 
+⚠️ **Score Calculation Formula:**
+```typescript
+// CORRECT: Divide by totalWeight (sum of evaluated criteria weights)
+const finalScore = Math.round(totalWeightedScore / totalWeight)
+
+// WRONG: Never divide by hardcoded 100!
+// const finalScore = totalScore / 100  ❌ BUG!
+```
+
 ```typescript
 // Example usage
 const result = calculateScore(robot.specs, job.scoring_criteria.criteria)
 // result.score = 85
 // result.breakdown = { payload: 100, stability: 70 }
+// result.missing = ['terrain_handling']  // specs not provided
 ```
 
 ## Score Dual (CRITICAL)
@@ -66,6 +79,96 @@ const result = calculateScore(robot.specs, job.scoring_criteria.criteria)
    - Source: `deployments` table count + `robots.status`
 
 **Display them SEPARATELY — Never combine into single score**
+
+## Data Validation (V3.5)
+
+Always validate with Zod BEFORE database operations:
+
+```typescript
+import { validateRobotSpecs } from '@/lib/validators/robot-specs'
+import { validateScoringCriteria } from '@/lib/validators/scoring-criteria'
+import { validateEmail } from '@/lib/validators/email'
+
+// Validate robot specs
+const validation = validateRobotSpecs(specs)
+if (!validation.success) {
+  throw new Error(validation.error)
+}
+
+// Validate scoring criteria
+const criteriaValidation = validateScoringCriteria(job.scoring_criteria)
+if (!criteriaValidation.success) {
+  throw new Error(criteriaValidation.error)
+}
+
+// Validate email (blocks disposable domains)
+const emailValidation = validateEmail(userEmail)
+if (!emailValidation.valid) {
+  return { error: emailValidation.error }
+}
+```
+
+## Soft Delete (V3.5)
+
+⚠️ **NEVER use SQL DELETE on main tables**
+
+```typescript
+// WRONG ❌
+await supabase.from('robots').delete().eq('id', robotId)
+
+// CORRECT ✓
+await supabase.from('robots').update({ deleted_at: new Date().toISOString() }).eq('id', robotId)
+```
+
+Use `active_*` views for queries:
+```typescript
+// Queries should use the views that filter deleted items
+const { data } = await supabase.from('active_robots').select('*')
+```
+
+## Rate Limiting & Anti-Spam (V3.5)
+
+All public forms MUST implement:
+
+```typescript
+import { rateLimit, isHoneypotFilled, getClientIP } from '@/lib/rate-limit'
+import { validateEmail } from '@/lib/validators/email'
+
+export async function submitForm(formData: FormData, headers: Headers) {
+  // 1. Check honeypot (invisible field)
+  if (isHoneypotFilled(formData)) {
+    return { error: 'Invalid submission' }  // Silent fail for bots
+  }
+
+  // 2. Check rate limit (5 req/min/IP)
+  const ip = getClientIP(headers)
+  const rateLimitResult = rateLimit(ip, 5, 60000)
+  if (!rateLimitResult.success) {
+    return { error: 'Too many requests. Please wait.' }
+  }
+
+  // 3. Validate email (no disposable domains)
+  const email = formData.get('email') as string
+  const emailValidation = validateEmail(email)
+  if (!emailValidation.valid) {
+    return { error: emailValidation.error }
+  }
+
+  // 4. Proceed with form submission...
+}
+```
+
+Honeypot field in forms:
+```tsx
+{/* Hidden honeypot field - bots will fill this */}
+<input
+  type="text"
+  name="website"
+  className="absolute -left-[9999px]"
+  tabIndex={-1}
+  autoComplete="off"
+/>
+```
 
 ## UX Cold Start
 
@@ -85,7 +188,7 @@ All DB queries MUST JOIN on `_i18n` tables:
 
 ```typescript
 const { data } = await supabase
-  .from('robots')
+  .from('active_robots')  // Use active_* views
   .select(`
     *,
     i18n:robots_i18n!inner(*)
@@ -119,13 +222,22 @@ const { base64 } = await getPlaiceholder(imageUrl)
 - Site is read-only for public
 
 ```typescript
-// Server Action pattern
+// Server Action pattern with validation
 async function submitInterest(formData: FormData) {
   'use server'
+
+  const email = formData.get('email') as string
+
+  // Validate email
+  const emailValidation = validateEmail(email)
+  if (!emailValidation.valid) {
+    return { error: emailValidation.error }
+  }
+
   const supabase = await createClient()
   await supabase.from('intent_leads').insert({
     robot_id: formData.get('robot_id'),
-    user_email: formData.get('email'),
+    user_email: emailValidation.normalized,
     user_industry: formData.get('industry'),
     fleet_size_interest: formData.get('fleet_size')
   })
@@ -200,7 +312,7 @@ export const revalidate = 86400 // 24 hours
 
 export default async function RobotPage({ params }) {
   const supabase = await createClient()
-  const { data } = await supabase.from('robots')...
+  const { data } = await supabase.from('active_robots')...
 }
 ```
 
@@ -215,6 +327,10 @@ export default async function RobotPage({ params }) {
 ❌ NO inline styles (use Tailwind)
 ❌ NO Radar Chart on mobile
 ❌ NO hardcoded scoring rules
+❌ NO SQL DELETE (use soft delete with `deleted_at`)
+❌ NO score calculation with `/100` (use `/totalWeight`)
+❌ NO form submission without rate limiting
+❌ NO email acceptance without validation
 
 ## File Naming
 
@@ -222,6 +338,7 @@ export default async function RobotPage({ params }) {
 - Utilities: `kebab-case.ts`
 - Hooks: `use-kebab-case.ts`
 - Types: `kebab-case.ts`
+- Validators: `kebab-case.ts`
 
 ## Commit Messages
 
@@ -237,9 +354,11 @@ Follow conventional commits:
 
 - Unit tests: Jest + Testing Library
 - E2E tests: Playwright (optional)
-- Test scoring engine thoroughly
+- Test scoring engine thoroughly (especially totalWeight calculation)
 - Test responsive breakpoints
+- Test rate limiting behavior
+- Test email validation (disposable domains blocked)
 
 ---
 
-*Radaroid Cursor Rules v1.0 — Based on Architecture V3.3*
+*Radaroid Cursor Rules v2.0 — Based on Architecture V3.5 Production-Ready*
