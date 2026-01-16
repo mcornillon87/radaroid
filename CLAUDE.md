@@ -97,7 +97,11 @@ Toujours JOIN sur les tables `_i18n`:
 
 ## Documentation
 
-- `Radaroid-Architecture-V3.5.md` — Architecture complète + SQL
+### Dossier `developpeur doc/`
+- `Radaroid-Architecture-V3.5.md` — Architecture complète + SQL + stratégie
+- `Radaroid-Design-System-v1.2-Addendum.md` — Guidelines UX/UI et Design System
+
+### Racine
 - `.cursorrules` — Règles détaillées pour Cursor/Claude
 
 ## Langue
