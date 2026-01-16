@@ -1,0 +1,245 @@
+# Radaroid Project Rules
+
+> Configuration for Cursor AI — Based on Architecture V3.3
+
+## Architecture
+
+- **Framework:** Next.js 14+ App Router (NO Pages Router)
+- **Database:** Supabase (Postgres) — NO Prisma, use @supabase/supabase-js
+- **Styling:** TailwindCSS + Shadcn/UI only
+- **Deploy:** Vercel
+- **Images:** plaiceholder for blur generation
+
+## Project Structure
+
+```
+app/                    # Next.js App Router pages
+├── robots/            # Robot catalog
+├── jobs/              # Job-based rankings (SEO landing)
+├── glossary/          # Technical wiki
+├── tracker/           # Deployment tracker
+├── compare/           # Robot comparator
+└── embed/             # Embeddable badges
+
+components/
+├── ui/                # Shadcn components
+├── scores/            # CapabilitiesChart, MaturityBadge
+├── modals/            # Lead gen modals
+└── layout/            # Header, Footer
+
+lib/
+├── supabase/          # Supabase clients
+├── scoring/           # Score calculation engine
+├── seo/               # JSON-LD helpers
+└── hooks/             # React hooks
+
+types/
+├── database.ts        # Supabase generated types
+└── scoring.ts         # Scoring interfaces
+```
+
+## Scoring Engine
+
+- Always use `calculateScore()` from `lib/scoring/engine.ts`
+- Never hardcode scoring rules — read from `jobs.scoring_criteria` JSON
+- Support 3 types: `numeric`, `boolean`, `enum_score`
+- Score range: 0-100
+
+```typescript
+// Example usage
+const result = calculateScore(robot.specs, job.scoring_criteria.criteria)
+// result.score = 85
+// result.breakdown = { payload: 100, stability: 70 }
+```
+
+## Score Dual (CRITICAL)
+
+⚠️ **NEVER merge technical score and maturity score**
+
+1. **Technical Score (Potentiel Technique):** 0-100
+   - Algorithm-based on specs vs job criteria
+   - Source: `robot_job_scores.score_tech`
+
+2. **Maturity Index (Indice de Maturité):** Status badge
+   - Based on verified deployments
+   - Values: `prototype` | `pilot` | `production`
+   - Source: `deployments` table count + `robots.status`
+
+**Display them SEPARATELY — Never combine into single score**
+
+## UX Cold Start
+
+When a robot has no verified deployments:
+
+```typescript
+if (deploymentsCount === 0) {
+  // Show "🧪 LAB RATED ONLY" badge
+  // Gray out maturity section
+  // Show call-to-action: "Vous l'avez déployé ? Témoignez →"
+}
+```
+
+## i18n Pattern
+
+All DB queries MUST JOIN on `_i18n` tables:
+
+```typescript
+const { data } = await supabase
+  .from('robots')
+  .select(`
+    *,
+    i18n:robots_i18n!inner(*)
+  `)
+  .eq('i18n.locale', locale)
+```
+
+**Tables with i18n:**
+- `robots` → `robots_i18n`
+- `jobs` → `jobs_i18n`
+- `glossary_terms` → `glossary_terms_i18n`
+
+## Images
+
+- Use `blur_data_url` from `robot_media` for Layout Shift prevention
+- Generate blur with plaiceholder library
+
+```typescript
+import { getPlaiceholder } from 'plaiceholder'
+
+const { base64 } = await getPlaiceholder(imageUrl)
+// Store base64 in robot_media.blur_data_url
+```
+
+## Lead Generation
+
+- "Interested" button → Simple email modal → `intent_leads` table
+- Job Alert form → `job_alerts` table
+- NO Stripe checkout
+- NO complex auth
+- Site is read-only for public
+
+```typescript
+// Server Action pattern
+async function submitInterest(formData: FormData) {
+  'use server'
+  const supabase = await createClient()
+  await supabase.from('intent_leads').insert({
+    robot_id: formData.get('robot_id'),
+    user_email: formData.get('email'),
+    user_industry: formData.get('industry'),
+    fleet_size_interest: formData.get('fleet_size')
+  })
+}
+```
+
+## Mobile First
+
+- Use `CapabilitiesChart` fallback (horizontal bars) on screens < 768px
+- Never render Radar Chart on mobile
+
+```typescript
+const isMobile = useMediaQuery('(max-width: 768px)')
+
+if (isMobile) {
+  return <HorizontalBars scores={scores} />
+}
+return <RadarChart scores={scores} />
+```
+
+## LLM SEO
+
+Every page MUST have JSON-LD Schema.org markup:
+
+| Page Type | Schema |
+|-----------|--------|
+| Robot | Product + Review + Organization |
+| Job | ItemList + HowTo |
+| Glossary | DefinedTerm |
+| Compare | ItemList |
+
+Include "citable sentences" in page introductions:
+```
+"L'Optimus Gen 2 de Tesla obtient un score de 85/100 pour le métier de manutentionnaire."
+```
+
+Maintain `/public/llms.txt` for AI crawler context.
+
+## Unit Conversion
+
+- ALWAYS store in Metric (SI) in database: `kg`, `cm`, `km/h`
+- Use `useUnitConversion` hook for display
+- Auto-convert to Imperial (`lbs`, `ft`, `mph`) if `locale === 'en-US'`
+
+```typescript
+const { convert, unit } = useUnitConversion()
+// convert(25, 'kg') → { value: 55.12, unit: 'lbs' } (if en-US)
+// convert(25, 'kg') → { value: 25, unit: 'kg' } (if fr)
+```
+
+## Component Patterns
+
+### Server Components (default)
+- Pages (`page.tsx`)
+- Layouts (`layout.tsx`)
+- Data fetching components
+
+### Client Components ('use client')
+- Interactive UI (modals, forms)
+- Charts (Recharts)
+- Hooks consumers (useMediaQuery)
+
+## Data Fetching
+
+- Use Server Components for initial data
+- Use ISR with `revalidate` for semi-static pages
+- No client-side fetching for critical content
+
+```typescript
+// app/robots/[slug]/page.tsx
+export const revalidate = 86400 // 24 hours
+
+export default async function RobotPage({ params }) {
+  const supabase = await createClient()
+  const { data } = await supabase.from('robots')...
+}
+```
+
+## Anti-Patterns (DO NOT)
+
+❌ NO public authentication (site is read-only)
+❌ NO forum/comments (use `error_reports` instead)
+❌ NO Stripe payments
+❌ NO single merged score
+❌ NO Pages Router (`pages/` directory)
+❌ NO Prisma ORM
+❌ NO inline styles (use Tailwind)
+❌ NO Radar Chart on mobile
+❌ NO hardcoded scoring rules
+
+## File Naming
+
+- Components: `PascalCase.tsx`
+- Utilities: `kebab-case.ts`
+- Hooks: `use-kebab-case.ts`
+- Types: `kebab-case.ts`
+
+## Commit Messages
+
+Follow conventional commits:
+- `feat:` new feature
+- `fix:` bug fix
+- `refactor:` code change without feature/fix
+- `docs:` documentation
+- `style:` formatting
+- `test:` tests
+
+## Testing
+
+- Unit tests: Jest + Testing Library
+- E2E tests: Playwright (optional)
+- Test scoring engine thoroughly
+- Test responsive breakpoints
+
+---
+
+*Radaroid Cursor Rules v1.0 — Based on Architecture V3.3*
